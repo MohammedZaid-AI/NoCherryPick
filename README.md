@@ -9,6 +9,7 @@ python generate.py     # synthetic batch + answer key (seeded, reproducible)
 python report.py       # run the engine, print the report + accuracy
 python test_engine.py  # self-checks over the money path
 python live.py         # headless check of the four live scenarios (<1s)
+python ingest_razorpay.py  # reconcile the sample Razorpay export
 python app.py          # http://127.0.0.1:5000 live demo · /batch one-shot report
 ```
 
@@ -132,6 +133,49 @@ Measured over ~110s of live run with Ollama up: **15 LLM explanations, 18 rules
 fallbacks**. With the endpoint pointed at a dead port: **7/7 rules, zero
 tracebacks, engine unaffected** (171 matches over the same window).
 
+## Load a real Razorpay report
+
+`python ingest_razorpay.py` reconciles `samples/razorpay_settlement_sample.csv`
+(30 real-shape rows, 3 payouts, planted fee variance + illegal UPI MDR +
+adjustment + transfer) with zero pre-processing, or hit **Load Razorpay CSV** on
+the dashboard to upload your own export — 28/28 matched, ₹121.14 leakage, in
+0.001s.
+
+Three translation decisions worth knowing, all in `ingest_razorpay.py`:
+
+- **Money stays in integer paise.** Razorpay reports paise and the engine's money
+  path is integer paise end to end. Converting to rupee floats would introduce
+  exactly the drift that must be avoided, so the correct conversion is none.
+- **Razorpay's `fee` bundles MDR and platform fee.** Booking it all as MDR would
+  fire the statutory 0% check on *every* UPI and RuPay row, since the legitimate
+  0.2% platform fee lives inside it. The adapter splits the contracted platform
+  fee back out; the residual is the real MDR. They still sum to `fee`, so the
+  total-variance check is untouched.
+- **The documented schema carries no payment method**, but the method decides the
+  contracted MDR and the settlement window. The adapter uses a `method` column
+  when the export has one, else sniffs `description`/`notes`, else falls back to
+  `DEFAULT_METHOD`. A wrong guess surfaces as a fee variance, so check that
+  column mapping before trusting leakage numbers on a real report.
+
+## Receive live Razorpay webhooks
+
+`POST /webhook/razorpay` takes Razorpay's real `settlement.processed` payload,
+verifies `X-Razorpay-Signature` (HMAC-SHA256 over the raw body against
+`RAZORPAY_WEBHOOK_SECRET`), and pushes it onto the live event bus tagged **RZP**
+in the bank column. It verifies, enqueues and returns in ~9ms — Razorpay retries
+anything slow or non-2xx. With no secret set it runs in dev mode, skips
+verification and warns once on the console.
+
+```bash
+python app.py            # one terminal
+python test_webhook.py   # another: forged, valid and malformed cases
+```
+
+Measured: forged → 400, valid → 200 in 9ms, malformed → 400. Note that
+`settlement.processed` means the payout was *initiated*; funds land within about
+three hours, so the event is advance notice of a credit the engine must still
+match.
+
 ## Honest limits
 
 - One refunded order carries only its refund line, not an original credit and a
@@ -170,5 +214,9 @@ tracebacks, engine unaffected** (171 matches over the same window).
 | `live_page.html` | three-column live UI: merchant, agent reasoning, bank + exceptions |
 | `app.py` | Flask: `/` live demo, `/stream` SSE, `/inject/*`, `/speed`, `/batch` report |
 | `test_engine.py` | fee math, challenge logic, subset-sum, end-to-end vs the key, cross-process determinism |
+| `ingest_razorpay.py` | Razorpay settlement-report adapter + isolated reconcile over an import |
+| `webhook_razorpay.py` | signed `settlement.processed` receiver, Flask blueprint |
+| `test_webhook.py` | forged / valid / malformed webhook cases against a running server |
+| `samples/` | 30-row real-shape Razorpay export with planted issues |
 
 All money is integer paise. There is no float anywhere in the money path.

@@ -12,11 +12,74 @@ import queue
 
 from flask import Flask, Response, jsonify, request
 
+import ingest_razorpay
 import live
+import webhook_razorpay
 from engine import ROOT, reconcile
 from report import score, to_json, truth
 
 app = Flask(__name__)
+app.register_blueprint(webhook_razorpay.bp)
+
+
+def _ingest_and_broadcast(path):
+    """Run the real engine over a Razorpay report and push the result to the UI.
+
+    Kept isolated from the live world: the imported report has its own dates and
+    its own book, so mixing it into the simulated stream would corrupt both
+    ages and exposure. Results are pushed to the dashboard as their own events.
+    """
+    try:
+        run = ingest_razorpay.reconcile_report(path)
+    except Exception as exc:                       # noqa: BLE001 - report, don't crash
+        return jsonify(ok=False, detail="could not read that report: {}".format(exc)), 400
+
+    conf = [m for m in run["matches"] if m.confident]
+    summary = dict(
+        payments=len(run["orders"]), settlements=len(run["groups"]),
+        matched=sum(len(m.order_ids) for m in conf), lines=len(run["settlements"]),
+        exceptions=len(run["exceptions"]), elapsed=run["elapsed"],
+        fee_findings=len(run["fee_findings"]),
+        leakage=sum(max(x["overcharge"], 0) for x in run["fee_findings"]))
+
+    live.BUS.emit("rzp_import", **summary, utrs=sorted(
+        {u for g in run["groups"].values() for u in g["utrs"] if u}))
+    for s in run["settlements"]:
+        live.BUS.emit("rzp_line", id=s.settlement_id, utr=s.utr, method=s.method,
+                      gross=s.gross_paise, net=s.net_paise, type=s.txn_type,
+                      date=s.settled_date.isoformat())
+    live.BUS.emit("rzp_exceptions", items=[
+        dict(code=e.code, record=e.record_id, amount=e.amount_paise,
+             age_days=e.age_days, explanation=e.explanation, action=e.action)
+        for e in run["exceptions"]])
+    return jsonify(ok=True, **summary)
+
+
+@app.post("/upload/razorpay-csv")
+def upload_razorpay_csv():
+    """Ingest an uploaded Razorpay settlement report."""
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify(ok=False, detail="no file"), 400
+
+    tmp = ROOT / "data" / "_uploaded_razorpay.csv"
+    tmp.parent.mkdir(exist_ok=True)
+    f.save(tmp)
+    return _ingest_and_broadcast(tmp)
+
+
+@app.post("/upload/razorpay-sample")
+def upload_razorpay_sample():
+    """Same ingest path, reading the bundled sample straight off disk.
+
+    One click, no file dialog -- the demo should never depend on someone
+    navigating to the right folder in an OS picker.
+    """
+    sample = ROOT / "samples" / "razorpay_settlement_sample.csv"
+    if not sample.exists():
+        return jsonify(ok=False, detail="sample missing at {}".format(
+            sample.relative_to(ROOT))), 404
+    return _ingest_and_broadcast(sample)
 
 
 @app.get("/")

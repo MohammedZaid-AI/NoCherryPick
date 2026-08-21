@@ -4,9 +4,10 @@
  :root{--bg:#0e1116;--fg:#e6e9ef;--dim:#8b94a7;--faint:#5a6376;--line:#222836;
        --card:#151a23;--ok:#35d07f;--warn:#f5b942;--bad:#ff5d5d;--blue:#5aa9ff}
  *{box-sizing:border-box}
- body{margin:0;background:var(--bg);color:var(--fg);overflow:hidden;
+ body{margin:0;background:var(--bg);color:var(--fg);overflow:hidden;height:100vh;
+      display:flex;flex-direction:column;
       font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
- header{display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+ header{display:flex;align-items:center;gap:20px;flex-wrap:wrap;flex:0 0 auto;
         padding:9px 16px;border-bottom:1px solid var(--line)}
  h1{font-size:13px;margin:0;letter-spacing:.04em;white-space:nowrap}
  .clock{color:var(--blue)}
@@ -17,18 +18,27 @@
  button.on{background:#1d3a2a;border-color:var(--ok);color:var(--ok)}
  .sep{width:1px;height:20px;background:var(--line)}
  .strip{display:flex;gap:22px;padding:8px 16px;border-bottom:1px solid var(--line);
-        overflow-x:auto}
+        overflow-x:auto;flex:0 0 auto}
  .c b{display:block;font-size:17px;font-weight:600;line-height:1.2}
  .c span{color:var(--faint);font-size:9.5px;text-transform:uppercase;letter-spacing:.09em}
- main{display:grid;grid-template-columns:1fr 1.5fr 1fr;height:calc(100vh - 96px)}
- section{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--line)}
+ /* min-height:0 all the way down, or a grid/flex item grows to fit its content
+    instead of constraining it -- which is why .scroll never got a scrollbar */
+ main{display:grid;grid-template-columns:1fr 1.5fr 1fr;flex:1 1 auto;min-height:0}
+ section{display:flex;flex-direction:column;min-width:0;min-height:0;position:relative;
+         border-right:1px solid var(--line)}
  section:last-child{border-right:0}
  h2{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.11em;
     margin:0;padding:9px 12px 7px;border-bottom:1px solid var(--line);
     display:flex;justify-content:space-between}
- .scroll{overflow-y:auto;overflow-x:hidden;padding:8px 10px;flex:1}
- .half{flex:1;display:flex;flex-direction:column;min-height:0}
+ .scroll{overflow-y:auto;overflow-x:hidden;padding:8px 10px;flex:1 1 auto;min-height:0;
+         overscroll-behavior:contain}
+ .half{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
  .half+.half{border-top:1px solid var(--line)}
+ .pill{position:absolute;right:14px;bottom:12px;z-index:5;display:none;cursor:pointer;
+       background:#1d3a2a;border:1px solid var(--ok);color:var(--ok);border-radius:12px;
+       padding:3px 11px;font-size:10.5px;letter-spacing:.05em;box-shadow:0 4px 14px #0008}
+ .pill:hover{background:#25553b}
+ .pill.show{display:block}
 
  .rec{padding:4px 8px;margin-bottom:3px;background:var(--card);border-radius:3px;
       border-left:2px solid #2b3446;white-space:nowrap;overflow:hidden;
@@ -60,6 +70,12 @@
  .exc .body{display:none;color:var(--dim);margin-top:5px;white-space:pre-wrap}
  .exc.open .body{display:block}
  .frozen{color:var(--warn)}
+ .rzp{display:inline-block;background:#123047;color:#7cc4ff;border:1px solid #2b6a9e;
+      border-radius:3px;padding:0 4px;margin-right:5px;font-size:9.5px;letter-spacing:.06em}
+ .rec.rzp-row{border-left-color:#5aa9ff}
+ #toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:9;
+        background:#123047;border:1px solid #2b6a9e;color:#cfe6ff;border-radius:5px;
+        padding:9px 15px;display:none;box-shadow:0 8px 26px #0009}
  ::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background:#2b3446;border-radius:4px}
 </style>
 
@@ -77,9 +93,14 @@
     <button onclick="setSpeed(5)" id="sp5">5x</button>
     <button onclick="setSpeed(20)" id="sp20">20x</button>
     <div class="sep"></div>
+    <button onclick="rzpFile.click()">Load Razorpay CSV</button>
+    <button onclick="loadSample()">Load Sample</button>
+    <input type="file" id="rzpFile" accept=".csv" style="display:none"
+           onchange="uploadRzp(this)">
     <button onclick="location.href='/batch'">Batch report</button>
   </div>
 </header>
+<div id="toast"></div>
 
 <div class="strip">
   <div class="c"><b id="cMatched" style="color:var(--ok)">0</b><span>matched</span></div>
@@ -121,26 +142,66 @@ const CAP = 140;                     // keep the DOM from growing without bound
 
 function el(tag, cls, html){ const d=document.createElement(tag); if(cls)d.className=cls;
   if(html!==undefined)d.innerHTML=html; return d; }
+
+/* ---- feed scrolling ----------------------------------------------------
+   These feeds are newest-FIRST: new rows are inserted at the top, so "live"
+   means scrollTop 0, not the bottom. Stick there while the reader is at the
+   newest end; the moment they scroll away (or hover), stop moving the view and
+   compensate for the height each new row adds, so the line they are reading
+   stays exactly where it is instead of being shoved down.            */
+const STICK_PX = 50;
+
+function isPinned(host){ return !host._hover && host.scrollTop <= STICK_PX; }
+
 function prepend(host, node, cap=CAP){
+  const stuck = isPinned(host);
+  const before = host.scrollHeight;
   host.insertBefore(node, host.firstChild);
   while (host.children.length > cap) host.removeChild(host.lastChild);
+  if (stuck) { host.scrollTop = 0; return; }
+  host.scrollTop += host.scrollHeight - before;   // hold the reader's position
+  if (host._pill){
+    host._pending = (host._pending || 0) + 1;
+    host._pill.textContent = '↑ ' + host._pending + ' new';
+    host._pill.classList.add('show');
+  }
+}
+
+function clearPill(host){
+  host._pending = 0;
+  if (host._pill) host._pill.classList.remove('show');
+}
+
+function initFeed(id, freezeLabel){
+  const host = document.getElementById(id);
+  const pill = el('div','pill','↑ new');
+  pill.onclick = ()=>{ host.scrollTop = 0; clearPill(host); };
+  host.parentElement.appendChild(pill);
+  host._pill = pill;
+  host.addEventListener('scroll', ()=>{ if (isPinned(host)) clearPill(host); });
+  host.addEventListener('mouseenter', ()=>{
+    host._hover = true;
+    if (freezeLabel) { freezeLabel.textContent = 'paused — reading'; freezeLabel.className = 'frozen'; }
+  });
+  host.addEventListener('mouseleave', ()=>{
+    host._hover = false;
+    if (freezeLabel) freezeLabel.textContent = '';
+    if (isPinned(host)) { host.scrollTop = 0; clearPill(host); }
+  });
+  return host;
 }
 const esc = s => String(s).replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
-/* ---- agent feed, with hover-to-freeze ---------------------------------- */
-const agent = document.getElementById('agent');
-let frozen = false, buffer = [];
-agent.addEventListener('mouseenter', ()=>{ frozen = true; document.getElementById('frozen').textContent='paused — reading'; document.getElementById('frozen').className='frozen'; });
-agent.addEventListener('mouseleave', ()=>{
-  frozen = false; document.getElementById('frozen').textContent='';
-  buffer.forEach(b=>prepend(agent, b)); buffer = [];
-});
+/* ---- the three live feeds --------------------------------------------- */
+const agent = initFeed('agent', document.getElementById('frozen'));
+initFeed('merchant');
+initFeed('bank');
+
 function say(lines){
   const blk = el('div','blk');
   for (const [cls, tag, text] of lines)
     blk.appendChild(el('div','ln '+cls, `<span class=tag>${tag}</span>${text}`));
-  if (frozen) { buffer.unshift(blk); if (buffer.length>CAP) buffer.pop(); }
-  else prepend(agent, blk);
+  prepend(agent, blk);   // never buffered -- scroll anchoring keeps the view still
 }
 
 /* ---- record rows ------------------------------------------------------- */
@@ -208,15 +269,73 @@ function apply(ev){
       say([['k-flag','FLAG',
         `${ev.settlement}  reason=${ev.code}  ${esc(ev.detail)}  overcharge=${money(ev.overcharge)}`]]);
       mark(ev.settlement,'warn'); break;
-    case 'explain':
+    case 'explain': {
       const blk = el('div','blk');
       blk.appendChild(el('div','ex',
         `“${esc(ev.text)}” <span class=src>— ${ev.source==='llm'?'LLM, past the number guard':'rules engine'}</span>`));
-      if (frozen) buffer.unshift(blk); else prepend(agent, blk);
+      prepend(agent, blk);
       break;
+    }
     case 'exceptions': renderExceptions(ev.items); break;
     case 'stats':      stats(ev); break;
+
+    /* ---- Razorpay-native events (additive; nothing above changes) ---- */
+    case 'rzp_settlement': {
+      const n = el('div','rec live rzp-row',
+        `<span class=rzp>RZP</span>${ev.settlement_id} <span class=m>payout · ${ev.utr}</span>`+
+        `<span class=amt>${money(ev.amount)}</span>`);
+      prepend(document.getElementById('bank'), n);
+      setTimeout(()=>n.classList.remove('live'), 900);
+      say([['k-note','WEBHOOK',
+        `${ev.type} ${ev.settlement_id} utr=${ev.utr} amount=${money(ev.amount)} `+
+        `fees=${money(ev.fees)} tax=${money(ev.tax)} — payout initiated, funds land within ~3h`]]);
+      break;
+    }
+    case 'rzp_line': {
+      const n = el('div','rec rzp-row on',
+        `<span class=rzp>RZP</span>${ev.id} <span class=m>${ev.type==='refund'?'REFUND':ev.method}</span>`+
+        `<span class=amt>${money(ev.type==='refund'?ev.gross:ev.net)}</span>`);
+      prepend(document.getElementById('bank'), n);
+      break;
+    }
+    case 'rzp_import':
+      toastMsg(`Loaded ${ev.payments} payments across ${ev.settlements} settlements `+
+               `from Razorpay report — ${ev.matched}/${ev.payments} matched, `+
+               `${ev.exceptions} exceptions, ${money(ev.leakage)} fee leakage`);
+      say([['k-note','IMPORT',
+        `Razorpay report: ${ev.payments} payments, ${ev.settlements} payouts `+
+        `(${ev.utrs.join(', ')}), matched ${ev.matched}, engine ${ev.elapsed.toFixed(3)}s`]]);
+      break;
+    case 'rzp_exceptions':
+      for (const e of ev.items)
+        say([['k-flag','RZP-EXC', `${e.code}  ${e.record}  ${money(e.amount)} — ${esc(e.explanation)}`]]);
+      break;
   }
+}
+
+function toastMsg(text){
+  toast.textContent = text; toast.style.display = 'block';
+  clearTimeout(toast._t); toast._t = setTimeout(()=>toast.style.display='none', 6000);
+}
+
+// success toast comes from the rzp_import event, so both loaders share it
+function ingestPost(url, opts, reading){
+  toastMsg(reading);
+  fetch(url, opts).then(r=>r.json()).then(r=>{
+    if (!r.ok) toastMsg('Could not read that report: ' + r.detail);
+  }).catch(()=>toastMsg('Load failed'));
+}
+
+function loadSample(){
+  ingestPost('/upload/razorpay-sample', {method:'POST'},
+             'Reading bundled Razorpay sample …');
+}
+
+function uploadRzp(input){
+  const f = input.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  ingestPost('/upload/razorpay-csv', {method:'POST',body:fd}, 'Reading ' + f.name + ' …');
+  input.value = '';
 }
 
 function stats(s){
