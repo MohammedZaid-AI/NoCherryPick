@@ -28,7 +28,8 @@ TIMEOUT_SECONDS = 5
 
 CATEGORIES = ["LATE_SETTLEMENT", "MISSING_BANK_CREDIT", "LATE_REFUND", "DUPLICATE_RETRY",
               "FEE_VARIANCE", "ZERO_MDR_VIOLATION", "NET_DEPOSIT_UNRESOLVED",
-              "LOW_CONFIDENCE_MATCH", "UNKNOWN"]
+              "LOW_CONFIDENCE_MATCH", "RAZORPAY_ADJUSTMENT", "RAZORPAY_TRANSFER",
+              "UNKNOWN"]
 
 SYSTEM = """You are writing exception notes for a payments reconciliation report \
 that a finance controller will act on.

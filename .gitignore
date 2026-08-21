@@ -11,6 +11,7 @@ env/
 # they are seeded and reproducible, and judges should be able to run
 # `python report.py` without regenerating anything first.
 data/run.json
+data/_uploaded_razorpay.csv
 
 # Local noise
 *.log
