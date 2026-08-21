@@ -1,0 +1,28 @@
+{
+  "merchant": "Kirana Kart Pvt Ltd",
+  "currency": "INR",
+  "note": "Agreed rates. bps = basis points (100 bps = 1.00%). All money in paise.",
+  "mdr_bps": {
+    "upi": 0,
+    "rupay_debit": 0,
+    "visa_debit": 90,
+    "credit_card": 200,
+    "netbanking": 150,
+    "wallet": 180
+  },
+  "zero_mdr_mandated": ["upi", "rupay_debit"],
+  "platform_fee_bps": 20,
+  "gst_bps": 1800,
+  "settlement_days": {
+    "upi": 1,
+    "rupay_debit": 2,
+    "visa_debit": 2,
+    "credit_card": 2,
+    "netbanking": 2,
+    "wallet": 2
+  },
+  "max_fuzzy_gap_days": 5,
+  "refund_window_days": 7,
+  "fee_tolerance_paise": 100,
+  "confidence_threshold": 0.7
+}

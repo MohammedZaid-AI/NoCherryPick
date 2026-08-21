@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Generated at runtime by `report.py --json` and the dashboard.
+# data/orders.csv, settlement.csv and answer_key.csv ARE tracked on purpose:
+# they are seeded and reproducible, and judges should be able to run
+# `python report.py` without regenerating anything first.
+data/run.json
+
+# Local noise
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

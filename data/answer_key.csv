@@ -1,0 +1,114 @@
+record_type,record_id,expected_counterpart,expected_verdict,planted_problem,note
+order,ORD-1001,SET-5001,MATCH,,
+settlement,SET-5001,ORD-1001,MATCH+ZERO_MDR_VIOLATION,ZERO_MDR_VIOLATION,"0.90% MDR deducted on upi, statutory rate is 0%"
+order,ORD-1002,SET-5002,MATCH,,
+settlement,SET-5002,ORD-1002,MATCH+FEE_VARIANCE,FEE_VARIANCE,MDR 265 bps vs contracted 200 bps
+order,ORD-1003,SET-5003,MATCH,,
+settlement,SET-5003,ORD-1003,MATCH+ZERO_MDR_VIOLATION,ZERO_MDR_VIOLATION,"0.90% MDR deducted on rupay_debit, statutory rate is 0%"
+order,ORD-1004,SET-5004,MATCH,,
+settlement,SET-5004,ORD-1004,MATCH,,
+order,ORD-1005,SET-5005,MATCH,,
+settlement,SET-5005,ORD-1005,MATCH,,
+order,ORD-1006,SET-5006,MATCH,,
+settlement,SET-5006,ORD-1006,MATCH,,
+order,ORD-1007,SET-5007,MATCH,,
+settlement,SET-5007,ORD-1007,MATCH+FEE_VARIANCE,FEE_VARIANCE,MDR 155 bps vs contracted 90 bps
+order,ORD-1008,SET-5008,MATCH,,
+settlement,SET-5008,ORD-1008,MATCH,,
+order,ORD-1009,SET-5009,MATCH,,
+settlement,SET-5009,ORD-1009,MATCH,,
+order,ORD-1010,SET-5010,MATCH,,
+settlement,SET-5010,ORD-1010,MATCH,,
+order,ORD-1011,SET-5011,MATCH,,
+settlement,SET-5011,ORD-1011,MATCH,,
+order,ORD-1012,SET-5012,MATCH,,
+settlement,SET-5012,ORD-1012,MATCH,,
+order,ORD-1013,SET-5013,MATCH,,
+settlement,SET-5013,ORD-1013,MATCH,,
+order,ORD-1014,SET-5014,MATCH,,
+settlement,SET-5014,ORD-1014,MATCH,,
+order,ORD-1015,SET-5015,MATCH,,
+settlement,SET-5015,ORD-1015,MATCH,,
+order,ORD-1016,SET-5016,MATCH,,
+settlement,SET-5016,ORD-1016,MATCH,,
+order,ORD-1017,SET-5017,MATCH,,
+settlement,SET-5017,ORD-1017,MATCH,,
+order,ORD-1018,SET-5018,MATCH,,
+settlement,SET-5018,ORD-1018,MATCH,,
+order,ORD-1019,SET-5019,MATCH,,
+settlement,SET-5019,ORD-1019,MATCH,,
+order,ORD-1020,SET-5020,MATCH,,
+settlement,SET-5020,ORD-1020,MATCH,,
+order,ORD-1021,SET-5021,MATCH,,
+settlement,SET-5021,ORD-1021,MATCH,,
+order,ORD-1022,SET-5022,MATCH,,
+settlement,SET-5022,ORD-1022,MATCH,,
+order,ORD-1023,SET-5023,MATCH,,
+settlement,SET-5023,ORD-1023,MATCH,,
+order,ORD-1024,SET-5024,MATCH,,
+settlement,SET-5024,ORD-1024,MATCH,,
+order,ORD-1025,SET-5025,MATCH,,
+settlement,SET-5025,ORD-1025,MATCH,,
+order,ORD-1026,SET-5026,MATCH,,
+settlement,SET-5026,ORD-1026,MATCH,,
+order,ORD-1027,SET-5027,MATCH,,
+settlement,SET-5027,ORD-1027,MATCH,,
+order,ORD-1028,SET-5028,MATCH,,
+settlement,SET-5028,ORD-1028,MATCH,,
+order,ORD-1029,SET-5029,MATCH,,
+settlement,SET-5029,ORD-1029,MATCH,,
+order,ORD-1030,SET-5030,MATCH,,
+settlement,SET-5030,ORD-1030,MATCH,,
+order,ORD-1031,SET-5031,MATCH,,
+settlement,SET-5031,ORD-1031,MATCH,,
+order,ORD-1032,SET-5032,MATCH,,
+settlement,SET-5032,ORD-1032,MATCH,,
+order,ORD-1033,SET-5033,MATCH,,
+settlement,SET-5033,ORD-1033,MATCH,,
+order,ORD-1034,SET-5034,MATCH,,
+settlement,SET-5034,ORD-1034,MATCH,,
+order,ORD-1035,SET-5035,MATCH,,
+settlement,SET-5035,ORD-1035,MATCH,,
+order,ORD-1036,SET-5036,MATCH,,
+settlement,SET-5036,ORD-1036,MATCH,,
+order,ORD-1037,SET-5037,MATCH,,
+settlement,SET-5037,ORD-1037,MATCH,,
+order,ORD-1038,SET-5038,MATCH,,
+settlement,SET-5038,ORD-1038,MATCH,,
+order,ORD-1039,SET-5039,MATCH,LATE_SETTLEMENT,"settled 1d past window, no order reference on the bank line"
+settlement,SET-5039,ORD-1039,MATCH,LATE_SETTLEMENT,
+order,ORD-1040,SET-5040,MATCH,LATE_SETTLEMENT,"settled 1d past window, no order reference on the bank line"
+settlement,SET-5040,ORD-1040,MATCH,LATE_SETTLEMENT,
+order,ORD-1041,SET-5041,MATCH,LATE_SETTLEMENT,"settled 2d past window, no order reference on the bank line"
+settlement,SET-5041,ORD-1041,MATCH,LATE_SETTLEMENT,
+order,ORD-1042,SET-5042,MATCH,LATE_SETTLEMENT,"settled 2d past window, no order reference on the bank line"
+settlement,SET-5042,ORD-1042,MATCH,LATE_SETTLEMENT,
+order,ORD-1043,SET-5043,MATCH,LATE_SETTLEMENT,"settled 3d past window, no order reference on the bank line"
+settlement,SET-5043,ORD-1043,MATCH,LATE_SETTLEMENT,
+order,ORD-1044,SET-5044,MATCH,LATE_REFUND,refund reflected at T+3
+settlement,SET-5044,ORD-1044,MATCH,LATE_REFUND,
+order,ORD-1045,SET-5045,MATCH,LATE_REFUND,refund reflected at T+5
+settlement,SET-5045,ORD-1045,MATCH,LATE_REFUND,
+order,ORD-1046,SET-5046,MATCH,LATE_REFUND,refund reflected at T+7
+settlement,SET-5046,ORD-1046,MATCH,LATE_REFUND,
+order,ORD-1047,,LATE_REFUND,LATE_REFUND,"refund 4d old, still inside the T+7 window"
+order,ORD-1048,,MISSING_BANK_CREDIT,MISSING_BANK_CREDIT,"refund 11d old, past the T+7 window, never reflected"
+order,ORD-1049,,DUPLICATE_RETRY,DUPLICATE_RETRY,"retry of ORD-1001, only the original settled"
+order,ORD-1050,,DUPLICATE_RETRY,DUPLICATE_RETRY,"retry of ORD-1002, only the original settled"
+order,ORD-1051,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+order,ORD-1052,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+order,ORD-1053,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+order,ORD-1054,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+order,ORD-1055,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+order,ORD-1056,SET-5047,MATCH,NET_BATCH_DEPOSIT,one of 6 orders inside a single lump-sum credit
+settlement,SET-5047,ORD-1051|ORD-1052|ORD-1053|ORD-1054|ORD-1055|ORD-1056,MATCH,NET_BATCH_DEPOSIT,no per-transaction breakdown on this deposit
+order,ORD-1057,,MISSING_BANK_CREDIT,SAME_AMOUNT_TRAP,shares an amount with an unrelated bank credit; must NOT be matched to it
+settlement,SET-5048,,UNKNOWN,SAME_AMOUNT_TRAP,different customer and different instrument to the order it collides with
+order,ORD-1058,SET-5049,MATCH,AMBIGUOUS_AMOUNT,"truly the settled one, but the bank line carries nothing that proves it"
+order,ORD-1059,,MISSING_BANK_CREDIT,AMBIGUOUS_AMOUNT,same amount and day as ORD-1058
+settlement,SET-5049,ORD-1058,MATCH,AMBIGUOUS_AMOUNT,"no reference, no customer ref: two orders fit equally well"
+order,ORD-1060,,MISSING_BANK_CREDIT,MISSING_BANK_CREDIT,"captured 8d ago, no credit ever arrived"
+order,ORD-1061,,MISSING_BANK_CREDIT,MISSING_BANK_CREDIT,"captured 14d ago, no credit ever arrived"
+settlement,SET-5050,,UNKNOWN,ORPHAN_CREDIT,credit with no order behind it anywhere in our books
+order,ORD-1062,,LATE_SETTLEMENT,LATE_SETTLEMENT,"captured 0d ago, T+2 instrument, not yet due"
+order,ORD-1063,,LATE_SETTLEMENT,LATE_SETTLEMENT,"captured 1d ago, T+2 instrument, not yet due"
