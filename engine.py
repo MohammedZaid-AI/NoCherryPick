@@ -271,19 +271,25 @@ def match_batch(orders, setts, contract, open_o, open_s):
 
 # ------------------------------------------------------------ fee verification
 
-def verify_fees(matches, orders, setts, contract):
+def verify_fees(matches, orders, setts, contract, scan=None):
     """Second loop: what the contract says the fee should be vs what was cut.
 
     The statutory 0% MDR check runs on every bank line, matched or not -- it
     needs nothing from our side of the file. The contract-rate check runs only
     on matches we actually believe; pricing a match we have already demoted
     would be arithmetic on a guess.
+
+    `scan` narrows which bank lines get the 0% MDR check. It defaults to all of
+    them, which is what the batch report wants. A long-running live book passes
+    only the lines that arrived this tick, because a fee finding never changes
+    once computed -- re-pricing the whole book every tick is what made engine
+    time grow with the length of the demo.
     """
     by_o = {o.order_id: o for o in orders}
     findings = []
     flagged = set()
 
-    for s in setts:
+    for s in (setts if scan is None else scan):
         if s.method in contract["zero_mdr_mandated"] and s.mdr_paise > 0:
             gst_on_mdr = (s.mdr_paise * contract["gst_bps"] + 5000) // 10000
             flagged.add(s.settlement_id)
@@ -295,10 +301,13 @@ def verify_fees(matches, orders, setts, contract):
                        "(plus {} GST on it)".format(s.method, rupees(s.mdr_paise),
                                                     rupees(gst_on_mdr))))
 
+    by_s = {s.settlement_id: s for s in setts}
     for m in matches:
         if not m.confident:
             continue
-        s = next(x for x in setts if x.settlement_id == m.settlement_id)
+        # dict, not a scan: this ran once per match over every settlement, which
+        # is the O(matches x settlements) term that dominated a long live run
+        s = by_s[m.settlement_id]
         if s.txn_type == "refund" or s.settlement_id in flagged:
             continue
         exp = {"mdr": 0, "platform": 0, "gst": 0}
@@ -345,15 +354,22 @@ def build_exceptions(orders, setts, matches, fee_findings, open_o, open_s, contr
                            "; ".join(m.signals), m.order_ids[0]),
             "Do not treat as settled. Confirm against the customer record first."))
 
+    # A retry twin shares customer + instrument + amount, so index on exactly
+    # that and look in one bucket instead of rescanning every order per
+    # unmatched order. Buckets keep insertion order, so the twin chosen is the
+    # same one the linear scan found.
+    twins = {}
+    for t in orders:
+        if t.order_id in matched_orders:
+            twins.setdefault((t.customer_id, t.method, t.gross_paise), []).append(t)
+
     for oid in sorted(open_o):
         o = by_o[oid]
         age = (as_of - o.order_date).days
         window = contract["settlement_days"][o.method]
-        twin = next((t for t in orders
-                     if t.order_id != oid and t.customer_id == o.customer_id
-                     and t.method == o.method and t.gross_paise == o.gross_paise
-                     and abs((t.order_date - o.order_date).days) <= 1
-                     and t.order_id in matched_orders), None)
+        twin = next((t for t in twins.get((o.customer_id, o.method, o.gross_paise), ())
+                     if t.order_id != oid
+                     and abs((t.order_date - o.order_date).days) <= 1), None)
         if twin:
             exs.append(Exception_(
                 "DUPLICATE_RETRY", "order", oid, o.gross_paise, age,
@@ -394,11 +410,26 @@ def build_exceptions(orders, setts, matches, fee_findings, open_o, open_s, contr
             why = (" The only candidate, {}, scored {} on self-verification and was "
                    "rejected.".format(r.order_ids[0], "%.2f" % r.confidence))
         if s.txn_type == "batch":
-            exs.append(Exception_(
-                "NET_DEPOSIT_UNRESOLVED", "settlement", s.settlement_id, s.net_paise, age,
-                "Lump-sum deposit with no per-transaction breakdown; no combination of open "
-                "orders reconstructs this net after backing out contract fees.",
-                "Request the settlement breakup file for UTR {}.".format(s.utr)))
+            # Two different reasons a deposit stays open, and they need different
+            # actions: nothing summed to it, or something did but not uniquely.
+            # Reporting the second as the first sends the controller chasing a
+            # breakup file when the real problem is that we cannot prove which
+            # orders these are.
+            r = rejected.get(s.settlement_id)
+            if r:
+                detail = ("Lump-sum deposit with no per-transaction breakdown. {} open "
+                          "orders do sum to this net, but so does another combination, "
+                          "so the decomposition scored {} and was not asserted.".format(
+                              len(r.order_ids), "%.2f" % r.confidence))
+                action = ("Confirm which orders belong to UTR {} before booking them "
+                          "as settled.".format(s.utr))
+            else:
+                detail = ("Lump-sum deposit with no per-transaction breakdown; no "
+                          "combination of open orders reconstructs this net after "
+                          "backing out contract fees.")
+                action = "Request the settlement breakup file for UTR {}.".format(s.utr)
+            exs.append(Exception_("NET_DEPOSIT_UNRESOLVED", "settlement",
+                                  s.settlement_id, s.net_paise, age, detail, action))
         else:
             exs.append(Exception_(
                 "UNKNOWN", "settlement", s.settlement_id, s.gross_paise, age,

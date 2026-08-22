@@ -105,6 +105,8 @@ class World:
         self.exceptions = []
         self._exc_key = None
         self._seen_findings = set()
+        self._findings = []          # accumulated; a finding never changes once made
+        self._new_setts = []
         self._explained = set()
         self.explain_q = queue.Queue()
         self.engine_ms = 0.0
@@ -161,6 +163,7 @@ class World:
             self.engine_ms = (time.perf_counter() - t0) * 1000
 
     def _release(self):
+        self._new_setts = []           # this tick's arrivals, for incremental pricing
         due = [p for p in self.pending if p[0] <= self.clock.vday]
         if not due:
             return
@@ -175,6 +178,7 @@ class World:
             else:
                 self.setts.append(rec)
                 self.open_s.append(rec)
+                self._new_setts.append(rec)
                 BUS.emit("settlement", id=rec.settlement_id, ref=rec.order_ref,
                          method=rec.method, gross=rec.gross_paise, net=rec.net_paise,
                          mdr=rec.mdr_paise, type=rec.txn_type,
@@ -183,12 +187,11 @@ class World:
     def _run_engine(self):
         """One pass of the real engine over the current book.
 
-        ponytail: rescans the whole book every tick -- verify_fees re-prices
-        every match and does a linear settlement lookup per match, so this is
-        O(n^2) in records seen. Measured 4.4ms at 277 records, which is nothing
-        at demo scale. If a demo is ever left running at 20x for an hour, retire
-        settled records into a closed ledger and pass the engine only the open
-        book.
+        Per-tick cost is bounded by what is still *open*, not by how long the
+        demo has run. Matching already only sees the open pools. Fee findings
+        are computed once per match and per bank line and then kept, because
+        neither can change afterwards: the orders, the settlement and the
+        contract behind a finding are all frozen by the time it exists.
         """
         fresh = []
         for fn in (match_exact, match_fuzzy, match_batch):
@@ -207,7 +210,13 @@ class World:
                 self.quar_o.update(m.order_ids)
                 self.quar_s.append(by_s[m.settlement_id])
 
-        findings = verify_fees(self.matches, self.orders, self.setts, self.contract)
+        # Price only what is new: this tick's matches, and this tick's bank
+        # lines for the statutory 0% MDR check. Both arrive together, so the
+        # cross-check that suppresses a duplicate FEE_VARIANCE on a line already
+        # flagged for illegal MDR still sees both halves in the same call.
+        self._findings += verify_fees(fresh, self.orders, self.setts, self.contract,
+                                      scan=self._new_setts)
+        findings = self._findings
         for f in findings:
             key = (f["code"], f["settlement"].settlement_id)
             if key in self._seen_findings:
