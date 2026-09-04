@@ -1,0 +1,7 @@
+# The engine itself is stdlib only -- engine.py, generate.py, report.py and
+# ingest_razorpay.py need nothing installed. These two are for the extras:
+Flask==3.1.3        # live dashboard, batch dashboard, Razorpay webhook receiver
+requests==2.34.2    # local Ollama explanation layer, and test_webhook.py
+
+# Deliberately NOT here: no LLM SDK. Explanations go to a local Ollama over
+# plain HTTP, and the engine is correct with the model unreachable.
